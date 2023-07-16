@@ -32,7 +32,7 @@ let exerciseSchema = new Schema
   {
     description : {type: String, required : true},
     duration : {type: Number, required : true},
-    date : {type: String, required : true},
+    date : {type: Date, required : true},
     userId : {type: String, required : true}
   }
 )
@@ -67,7 +67,7 @@ app.get("/api/users", async function(req, res){
 class singleExerciseDTO{
   constructor(exercise){
     this.description = exercise.description;
-    this.date = exercise.date;
+    this.date = new Date(exercise.date).toDateString();
     this.duration = exercise.duration;
   }
 }
@@ -99,10 +99,7 @@ app.post("/api/users/:_id/exercises", async function(req, res){
   let date = requestBody.date
 
   if(!date) {
-    date = new Date().toDateString();
-  }
-  else{
-    date = new Date(date).toDateString();
+    date = new Date();
   }
 
   try{
@@ -127,7 +124,21 @@ app.get("/api/users/:_id/logs", async function(req, res){
 
     let exerciseSearchObject = {userId : user._id};
 
-    let exercises = await exerciseModel.find(exerciseSearchObject);
+    let dateSearchObject = {};
+
+    if(req.query.from){
+      dateSearchObject.$gte = req.query.from;
+      exerciseSearchObject.date = dateSearchObject;
+    }
+
+    if(req.query.to){
+      dateSearchObject.$lte = req.query.to;
+      exerciseSearchObject.date = dateSearchObject;
+    }
+
+    let numberToTake = req.query.limit ?? 0
+
+    let exercises = await exerciseModel.find(exerciseSearchObject).limit(numberToTake);
 
     let arrayOfExercisesDTO = exercises.map(el => {return {...new singleExerciseDTO(el)}}); 
 
