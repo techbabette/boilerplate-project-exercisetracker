@@ -27,7 +27,19 @@ let userSchema = new Schema
   }
 )
 
+let exerciseSchema = new Schema
+(
+  {
+    description : {type: String, required : true},
+    duration : {type: Number, required : true},
+    date : {type: String, required : true},
+    userId : {type: String, required : true}
+  }
+)
+
 let userModel = mongoose.model("Users", userSchema);
+
+let exerciseModel = mongoose.model("Exercises", exerciseSchema);
 
 app.post("/api/users", async function(req, res){
   let username = req.body.username
@@ -44,8 +56,85 @@ app.post("/api/users", async function(req, res){
 
 app.get("/api/users", async function(req, res){
   try{
-    people = await userModel.find();
+    let people = await userModel.find();
     res.json(people);
+  }
+  catch(err){
+    console.log(err);
+  }
+})
+
+class singleExerciseDTO{
+  constructor(exercise){
+    this.description = exercise.description;
+    this.date = exercise.date;
+    this.duration = exercise.duration;
+  }
+}
+
+class userExerciseDTO extends singleExerciseDTO{
+  constructor(exercise, user){
+    super(exercise);
+    this.username = user.username;
+    this._id = user._id;
+  }
+}
+
+class userLogDTO{
+  constructor(user, arrayOfExercises){
+    this.username = user.username;
+    this._id = user._id;
+    this.count = arrayOfExercises.length;
+    this.log = arrayOfExercises ?? [];
+  }
+}
+
+app.post("/api/users/:_id/exercises", async function(req, res){
+  let requestBody = req.body;
+
+  let userId = req.params._id;
+
+  let description = requestBody.description
+  let duration = requestBody.duration
+  let date = requestBody.date
+
+  if(!date) {
+    date = new Date().toDateString();
+  }
+  else{
+    date = new Date(date).toDateString();
+  }
+
+  try{
+    let user = await userModel.findById(userId);
+
+    let newExercise = new exerciseModel({userId, description, duration, date})
+    let exercise = await newExercise.save();
+    let returnObject = new userExerciseDTO(exercise, user);
+
+    res.json(returnObject);
+  }
+  catch(err){
+    console.log(err);
+  }
+})
+
+app.get("/api/users/:_id/logs", async function(req, res){
+  let userId = req.params._id;
+
+  try{
+    let user = await userModel.findById(userId);
+
+    let exerciseSearchObject = {userId : user._id};
+
+    let exercises = await exerciseModel.find(exerciseSearchObject);
+
+    let arrayOfExercisesDTO = exercises.map(el => {return {...new singleExerciseDTO(el)}}); 
+
+    let log = new userLogDTO(user, arrayOfExercisesDTO);
+    
+    console.log(log);
+    res.json(log);
   }
   catch(err){
     console.log(err);
